@@ -1,3 +1,5 @@
+import sys
+
 __author__ = 'issue'
 import os
 import random
@@ -6,7 +8,7 @@ from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol, ssl, task
 from ConfigParser import ConfigParser
 
-UA = "bewbs4irc:v0"
+UA = "bewbs4irc:v1"
 r = praw.Reddit(user_agent=UA)
 
 
@@ -18,6 +20,8 @@ class Config(object):
         self.port = None
         self.hostname = ""
         self.subs = []
+        self.ssl = None
+        self.interval = None
 
     def create_default_config(self):
         self.config.add_section("config")
@@ -25,6 +29,8 @@ class Config(object):
         self.config.set("config", "port", "")
         self.config.set("config", "channel", "")
         self.config.set("config", "subs", "")
+        self.config.set("config", "ssl", "")
+        self.config.set("config", "interval", "")
         with open("settings.cfg", "wb") as cfgfile:
             self.config.write(cfgfile)
 
@@ -33,6 +39,8 @@ class Config(object):
         self.channel = self.config.get("config", "channel")
         self.hostname = self.config.get("config", "hostname")
         self.port = self.config.getint("config", "port")
+        self.ssl = self.config.getboolean("config", "ssl")
+        self.interval = self.config.getint("config", "interval")
         self.subs = self.config.get("config", "subs").split(',')
 
     def add_sub(self, msg):
@@ -51,19 +59,13 @@ class Config(object):
 
 
 def get_bewbs():
-    if botcfg.subs:
-        bewb_subs = botcfg.subs
-        print("> Using subs from file")
-    else:
-        print("> Using predefined subs")
-        bewb_subs = ["boobs", "tits", "tightdresses", "burstingout", "nsfw"]
-    next_sub = random.choice(bewb_subs)
+    next_sub = random.choice(botcfg.subs)
     try:
         subreddit = r.get_subreddit(next_sub)
         hot = subreddit.get_hot(limit=20)
         submission = [c for c in hot]
         content = random.choice(submission)
-        return "RANDOM DEPF: {} {}".format(content.title, content.url)
+        return b"RANDOM DEPF: {} {} from {}".format(content.title, content.url, next_sub)
     except (TypeError, praw.errors.RedirectException, praw.errors.APIException):
         print("Removing sub from list because bad sub is bad ", next_sub)
         botcfg.remove_sub(next_sub)
@@ -81,7 +83,7 @@ class BewbBot(irc.IRCClient):
 
         msg = get_bewbs()
         if msg is not None:
-            self.say(channel, msg)
+            self.say(channel, bytes(msg))
 
     def signedOn(self):
         self.join(self.factory.channel)
@@ -130,7 +132,7 @@ class BewbBot(irc.IRCClient):
         print("Joined channel " + channel)
 
         lc = task.LoopingCall(self.post_bewbs, channel)
-        lc.start(3600)
+        lc.start(botcfg.interval)
 
 
 class BewbBotFactory(protocol.ClientFactory):
@@ -154,13 +156,17 @@ if __name__ == "__main__":
     if not os.path.isfile("settings.cfg"):
         print(">>No config found, creating default")
         botcfg.create_default_config()
+        print("edit settings.cfg and rerun")
+        sys.exit(0)
     botcfg.read_config("settings.cfg")
 
     print("Connecting to {} at {}:{} ".format(botcfg.channel, botcfg.hostname, botcfg.port))
 
     f = BewbBotFactory(botcfg.channel)
-    reactor.connectSSL(botcfg.hostname, botcfg.port, f, ssl.ClientContextFactory())
-
+    if botcfg.ssl:
+        reactor.connectSSL(botcfg.hostname, botcfg.port, f, ssl.ClientContextFactory())
+    else:
+        reactor.connectTCP(botcfg.hostname, botcfg.port, f)
     reactor.run()
 
 
