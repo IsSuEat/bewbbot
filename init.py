@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 
 __author__ = 'issue'
@@ -65,7 +66,9 @@ def get_bewbs():
         hot = subreddit.get_hot(limit=20)
         submission = [c for c in hot]
         content = random.choice(submission)
-        return b"RANDOM DEPF: {} {} from {}".format(content.title, content.url, next_sub)
+        msg = u"RANDOM DEPF: {} {} from {}".format(content.title.decode("utf8", "replace"), content.url, next_sub)
+
+        return msg.encode("ascii", "replace")
     except (TypeError, praw.errors.RedirectException, praw.errors.APIException):
         print("Removing sub from list because bad sub is bad ", next_sub)
         botcfg.remove_sub(next_sub)
@@ -82,8 +85,9 @@ class BewbBot(irc.IRCClient):
     def post_bewbs(self, channel):
 
         msg = get_bewbs()
+
         if msg is not None:
-            self.say(channel, bytes(msg))
+            self.say(channel, msg)
 
     def signedOn(self):
         self.join(self.factory.channel)
