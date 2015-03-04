@@ -66,9 +66,9 @@ def get_bewbs():
         hot = subreddit.get_hot(limit=20)
         submission = [c for c in hot]
         content = random.choice(submission)
-        msg = u"RANDOM DEPF: {} {} from {}".format(content.title.decode("utf8", "replace"), content.url, next_sub)
+        msg = "RANDOM DEPF: {} {} from {}".format(content.title.encode("ascii", "replace"), content.url, next_sub)
 
-        return msg.encode("ascii", "replace")
+        return msg
     except (TypeError, praw.errors.RedirectException, praw.errors.APIException):
         print("Removing sub from list because bad sub is bad ", next_sub)
         botcfg.remove_sub(next_sub)
